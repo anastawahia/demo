@@ -1,0 +1,1955 @@
+<title>APCO APP DEMO</title>
+
+<style>
+/* ============================================================
+   TOKENS — light is the base palette; dark redefines tokens only
+   Palette: slate-ink neutrals + copper accent (bearings/grease)
+            + instrument teal for data & AI
+   ============================================================ */
+:root{
+  --ground:      #E6E9EC;
+  --surface:     #F3F5F6;
+  --surface-2:   #DADEE1;
+  --line:        #C7CDD2;
+  --line-soft:   #D7DEE4;
+  --text:        #171B1E;
+  --text-muted:  #565F65;
+  --text-faint:  #838C96;
+  --accent:      #A05C25;
+  --accent-2:    #C07A3C;
+  --accent-wash: rgba(160, 92, 37, 0.10);
+  --data:        #1B7A6F;
+  --data-wash:   rgba(27, 122, 111, 0.10);
+  --ok:          #2E7D5B;
+  --ok-wash:     rgba(46, 125, 91, 0.13);
+  --warn:        #9C6A0E;
+  --warn-wash:   rgba(156, 106, 14, 0.14);
+  --idle:        #6F797E;
+  --idle-wash:   rgba(111, 121, 126, 0.13);
+  --shadow:      0 1px 2px rgba(20,26,30,.06), 0 8px 26px rgba(20,26,30,.07);
+
+  --font-body: "Segoe UI", "Noto Sans Arabic", "Tahoma", system-ui, sans-serif;
+  --font-mono: "Consolas", "Cascadia Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+
+  --pad-x: clamp(1.5rem, 6vw, 6.5rem);
+  --pad-y: clamp(1.75rem, 4.5vh, 3.5rem);
+  --rail:  clamp(2.25rem, 4vw, 3.5rem);
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:      #10161A;
+    --surface:     #182126;
+    --surface-2:   #202C32;
+    --line:        #2E3B42;
+    --line-soft:   #263137;
+    --text:        #E6EBEC;
+    --text-muted:  #96A5AC;
+    --text-faint:  #6C7A81;
+    --accent:      #DB8C48;
+    --accent-2:    #E8A55F;
+    --accent-wash: rgba(219, 140, 72, 0.13);
+    --data:        #4FB6A7;
+    --data-wash:   rgba(79, 182, 167, 0.13);
+    --ok:          #5FB48D;
+    --ok-wash:     rgba(95, 180, 141, 0.15);
+    --warn:        #D9A441;
+    --warn-wash:   rgba(217, 164, 65, 0.15);
+    --idle:        #79878E;
+    --idle-wash:   rgba(121, 135, 142, 0.16);
+    --shadow:      0 1px 2px rgba(0,0,0,.30), 0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:      #10161A;
+  --surface:     #182126;
+  --surface-2:   #202C32;
+  --line:        #2E3B42;
+  --line-soft:   #263137;
+  --text:        #E6EBEC;
+  --text-muted:  #96A5AC;
+  --text-faint:  #6C7A81;
+  --accent:      #DB8C48;
+  --accent-2:    #E8A55F;
+  --accent-wash: rgba(219, 140, 72, 0.13);
+  --data:        #4FB6A7;
+  --data-wash:   rgba(79, 182, 167, 0.13);
+  --ok:          #5FB48D;
+  --ok-wash:     rgba(95, 180, 141, 0.15);
+  --warn:        #D9A441;
+  --warn-wash:   rgba(217, 164, 65, 0.15);
+  --idle:        #79878E;
+  --idle-wash:   rgba(121, 135, 142, 0.16);
+  --shadow:      0 1px 2px rgba(0,0,0,.30), 0 10px 30px rgba(0,0,0,.35);
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+*, *::before, *::after{ box-sizing: border-box; }
+
+html, body{ height: 100%; }
+body{
+  margin: 0;
+  direction: rtl;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.7;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.deck{
+  position: relative;
+  height: 100dvh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ---- progress rail (top) ---- */
+.progress{
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 3px;
+  background: var(--line-soft);
+  z-index: 60;
+}
+.progress__bar{
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  transition: width .45s cubic-bezier(.4,0,.2,1);
+}
+
+/* ---- side rail: vertical section label ---- */
+.rail{
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--rail);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-inline-end: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  z-index: 40;
+  pointer-events: none;
+}
+.rail__text{
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   SLIDES
+   ============================================================ */
+.stage{
+  position: absolute;
+  inset: 0;
+  padding-inline-start: var(--rail);
+  padding-block-end: 4.25rem;
+}
+
+.slide{
+  position: absolute;
+  inset: 0;
+  padding: var(--pad-y) var(--pad-x);
+  padding-block-end: calc(var(--pad-y) + 1rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  justify-content: safe center; /* keeps the top reachable when a slide overflows */
+  overflow-y: auto;
+  overflow-x: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px);
+  transition: opacity .4s ease, transform .45s cubic-bezier(.2,.7,.3,1), visibility 0s linear .45s;
+}
+.slide.is-active{
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity .45s ease, transform .5s cubic-bezier(.2,.7,.3,1), visibility 0s;
+}
+
+.slide__body{
+  width: 100%;
+  max-width: 62rem;
+  margin-inline: auto;
+}
+
+/* ---- slide typography ---- */
+.eyebrow{
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 .85rem;
+}
+.eyebrow::after{
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+h1.title{
+  font-size: clamp(2rem, 4.6vw, 3.7rem);
+  line-height: 1.28;
+  font-weight: 700;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+h2.title{
+  font-size: clamp(1.55rem, 3.2vw, 2.6rem);
+  line-height: 1.35;
+  font-weight: 700;
+  margin: 0 0 .35rem;
+  text-wrap: balance;
+}
+.title .en{
+  font-family: var(--font-mono);
+  font-size: .62em;
+  letter-spacing: .02em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.lead{
+  font-size: clamp(1.02rem, 1.55vw, 1.32rem);
+  color: var(--text-muted);
+  margin: 0 0 1.6rem;
+  max-width: 46ch;
+  line-height: 1.8;
+}
+
+.idea{
+  border-inline-start: 3px solid var(--accent);
+  background: var(--accent-wash);
+  padding: .8rem 1.1rem;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: 6px;
+  border-end-end-radius: 6px;
+  margin: 0 0 1.5rem;
+  font-size: clamp(1rem, 1.45vw, 1.2rem);
+  max-width: 54ch;
+}
+.idea b{ font-weight: 700; }
+
+/* ---- bullet lists ---- */
+.bullets{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  max-width: 58ch;
+}
+.bullets li{
+  position: relative;
+  padding-inline-start: 1.5rem;
+  font-size: clamp(.98rem, 1.28vw, 1.16rem);
+  line-height: 1.8;
+}
+.bullets li::before{
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: .78em;
+  width: .62rem;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+.bullets li b{ font-weight: 700; }
+.bullets li .en{
+  font-family: var(--font-mono);
+  font-size: .88em;
+  color: var(--text-muted);
+}
+
+/* staggered reveal */
+@media (prefers-reduced-motion: no-preference){
+  .slide.is-active .stagger > *{
+    animation: rise .5s cubic-bezier(.2,.7,.3,1) backwards;
+  }
+  .slide.is-active .stagger > *:nth-child(1){ animation-delay: .06s; }
+  .slide.is-active .stagger > *:nth-child(2){ animation-delay: .12s; }
+  .slide.is-active .stagger > *:nth-child(3){ animation-delay: .18s; }
+  .slide.is-active .stagger > *:nth-child(4){ animation-delay: .24s; }
+  .slide.is-active .stagger > *:nth-child(5){ animation-delay: .30s; }
+  .slide.is-active .stagger > *:nth-child(6){ animation-delay: .36s; }
+  .slide.is-active .stagger > *:nth-child(7){ animation-delay: .42s; }
+  .slide.is-active .stagger > *:nth-child(8){ animation-delay: .48s; }
+  @keyframes rise{
+    from{ opacity: 0; transform: translateY(10px); }
+    to  { opacity: 1; transform: none; }
+  }
+}
+
+/* ============================================================
+   COVER
+   ============================================================ */
+.cover{
+  --grid-line: color-mix(in srgb, var(--line-soft) 55%, transparent);
+  background:
+    radial-gradient(120% 90% at 88% 8%, var(--accent-wash), transparent 62%),
+    repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 72px),
+    var(--ground);
+}
+.cover__mark{
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: .4rem .8rem;
+  border-radius: 999px;
+  margin-bottom: 1.6rem;
+}
+.cover__dot{
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.cover__sub{
+  font-size: clamp(1.05rem, 1.9vw, 1.55rem);
+  color: var(--text-muted);
+  max-width: 40ch;
+  margin: 0 0 2.4rem;
+  line-height: 1.7;
+}
+.cover__rule{
+  width: 5.5rem;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 2px;
+  margin-bottom: 1.5rem;
+}
+.byline{
+  font-family: var(--font-mono);
+  font-size: .82rem;
+  letter-spacing: .14em;
+  color: var(--text-muted);
+  direction: ltr;
+  text-align: right;
+}
+.byline span{ color: var(--text-faint); padding: 0 .45rem; }
+
+/* ============================================================
+   CARDS / GRIDS
+   ============================================================ */
+.grid{
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.card{
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 1.1rem 1.15rem;
+  box-shadow: var(--shadow);
+}
+.card__head{
+  display: flex;
+  align-items: baseline;
+  gap: .55rem;
+  margin-bottom: .4rem;
+}
+.card__n{
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  color: var(--accent);
+  letter-spacing: .1em;
+}
+.card__t{
+  font-weight: 700;
+  font-size: 1.06rem;
+}
+.card__t .en{
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  letter-spacing: .06em;
+  color: var(--text-faint);
+  font-weight: 400;
+  margin-top: .1rem;
+}
+.card p{
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .97rem;
+  line-height: 1.75;
+}
+
+/* goal cards (slide 2) */
+.goals{ counter-reset: g; }
+.goal{
+  position: relative;
+  padding-block-start: 1.5rem;
+}
+.goal::before{
+  counter-increment: g;
+  content: "٠" counter(g, arabic-indic);
+  position: absolute;
+  inset-block-start: .9rem;
+  inset-inline-start: 1.15rem;
+  font-family: var(--font-body);
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: .06em;
+}
+
+/* impact cards (slide 11) */
+.impact .card__t{ color: var(--text); }
+.impact .card{ border-inline-start: 3px solid var(--accent); }
+
+/* ============================================================
+   FLOW DIAGRAM (slide 4)
+   ============================================================ */
+.flow{
+  display: grid;
+  grid-template-columns: 1.15fr auto .9fr auto .9fr;
+  align-items: center;
+  gap: .9rem;
+  margin-top: 1.4rem;
+}
+.flow__stack{ display: grid; gap: .5rem; }
+.chip{
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: .6rem .8rem;
+  box-shadow: var(--shadow);
+}
+.chip__i{
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border-radius: 4px;
+  padding: .1rem .35rem;
+  letter-spacing: .04em;
+  margin-block-start: .2rem;
+  flex: none;
+}
+.chip__txt{
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  min-width: 0;
+}
+.chip__name{
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.02rem;
+  letter-spacing: .01em;
+  color: var(--text);
+}
+.chip__d{
+  font-size: .82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.node{
+  text-align: center;
+  border-radius: 10px;
+  padding: 1rem .7rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.node--db{ border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.node--ai{
+  border-color: color-mix(in srgb, var(--data) 45%, var(--line));
+  background: var(--data-wash);
+}
+.node__t{ font-weight: 700; font-size: 1rem; margin-bottom: .2rem; }
+.node__s{ font-size: .82rem; color: var(--text-muted); line-height: 1.6; }
+.arrow{
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.arrow svg{ width: 26px; height: 26px; }
+
+@media (max-width: 820px){
+  .flow{ grid-template-columns: 1fr; gap: .5rem; margin-top: 1rem; }
+  .arrow svg{ transform: rotate(-90deg); width: 20px; height: 20px; }
+  .chip{ padding: .5rem .65rem; }
+  .chip__name{ font-size: .95rem; }
+  .chip__d{ font-size: .78rem; }
+  .node{ padding: .7rem .6rem; }
+}
+
+/* ============================================================
+   STATUS TABLE (slide 5)
+   ============================================================ */
+.tablewrap{ overflow-x: auto; margin-top: 1.1rem; }
+table{
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 34rem;
+  font-size: clamp(.92rem, 1.15vw, 1.05rem);
+}
+thead th{
+  text-align: start;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 600;
+  padding: 0 .85rem .6rem;
+  border-block-end: 1px solid var(--line);
+}
+tbody td{
+  padding: .8rem .85rem;
+  border-block-end: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+tbody tr:last-child td{ border-block-end: none; }
+.cellname{ font-weight: 600; }
+.cellname .en{
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .76rem;
+  color: var(--text-faint);
+  font-weight: 400;
+  direction: ltr;
+  text-align: start;
+}
+.pill{
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .22rem .65rem;
+  border-radius: 999px;
+  font-size: .86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.pill::before{
+  content: "";
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+.pill--ok  { color: var(--ok);   background: var(--ok-wash);   border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
+.pill--warn{ color: var(--warn); background: var(--warn-wash); border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
+.pill--idle{ color: var(--idle); background: var(--idle-wash); border-color: color-mix(in srgb, var(--idle) 30%, transparent); }
+
+.legend{
+  display: flex;
+  flex-wrap: wrap;
+  gap: .9rem;
+  margin-top: 1rem;
+  font-size: .85rem;
+  color: var(--text-muted);
+}
+
+/* status note on section slides */
+.statusline{
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-soft);
+  font-size: .93rem;
+  color: var(--text-muted);
+}
+.statusline__k{
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* ============================================================
+   INSTRUMENT PANEL (slide 8)
+   ============================================================ */
+.panel{
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: .85rem;
+  align-content: start;
+}
+.panel__head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  border-block-end: 1px solid var(--line-soft);
+  padding-block-end: .6rem;
+}
+.panel__title{
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.panel__note{
+  font-size: .74rem;
+  color: var(--text-faint);
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: .1rem .55rem;
+}
+.reading{
+  display: grid;
+  grid-template-columns: 6rem 1fr auto;
+  align-items: center;
+  gap: .75rem;
+}
+.reading__k{
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  direction: ltr;
+  text-align: start;
+  white-space: nowrap;
+}
+.reading__k small{
+  display: block;
+  font-family: var(--font-body);
+  font-size: .7rem;
+  letter-spacing: 0;
+  color: var(--text-faint);
+  direction: rtl;
+  white-space: normal;
+}
+/* mirrored so the newest reading sits beside the value, matching RTL flow */
+.spark{ width: 100%; height: 30px; display: block; transform: scaleX(-1); }
+.spark path{ fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.reading__v{
+  font-family: var(--font-mono);
+  font-size: .92rem;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  min-width: 4.2rem;
+  text-align: start;
+}
+.v--ok  { color: var(--data); }
+.v--warn{ color: var(--warn); }
+.alert{
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  background: var(--warn-wash);
+  border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+  color: var(--text);
+  border-radius: 8px;
+  padding: .55rem .7rem;
+  font-size: .88rem;
+}
+.alert b{ color: var(--warn); }
+
+.split{
+  display: grid;
+  grid-template-columns: 1.05fr .95fr;
+  gap: 1.4rem;
+  align-items: start;
+}
+@media (max-width: 900px){
+  .split{ grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   ROADMAP (slide 13)
+   ============================================================ */
+.steps{
+  list-style: none;
+  margin: 1.2rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  max-width: 52rem;
+}
+.steps li{
+  position: relative;
+  padding-block: .95rem;
+  padding-inline: 2.2rem 0;
+  border-block-end: 1px solid var(--line-soft);
+  font-size: clamp(.98rem, 1.28vw, 1.14rem);
+}
+.steps li:last-child{ border-block-end: none; }
+.steps li::before{
+  content: "";
+  position: absolute;
+  inset-inline-start: .5rem;
+  inset-block-start: 1.55em;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--ground);
+}
+.steps li::after{
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(.5rem + 4px);
+  inset-block-start: calc(1.55em + 9px);
+  width: 1px;
+  height: calc(100% - 1.55em - 9px + .95rem);
+  background: var(--line);
+}
+.steps li:last-child::after{ display: none; }
+.needs{
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: 1.2rem;
+}
+.need{
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: .35rem .85rem;
+  font-size: .92rem;
+}
+
+/* ============================================================
+   CLOSING
+   ============================================================ */
+.closing{ text-align: center; }
+.closing .slide__body{ max-width: 46rem; }
+.transition{
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 1.8rem;
+  font-size: clamp(1rem, 1.6vw, 1.3rem);
+}
+.transition .from{ color: var(--text-muted); }
+.transition .to{ color: var(--accent); font-weight: 700; }
+.transition .sep{ color: var(--accent); font-size: 1.4em; line-height: 1; }
+
+/* ============================================================
+   TROUBLESHOOTING — stages / algorithm / step tracking
+   ============================================================ */
+.stages{ counter-reset: st; margin-top: .4rem; }
+.stage-card{ position: relative; padding-block-start: 1.75rem; }
+.stage-card::before{
+  counter-increment: st;
+  content: "٠" counter(st, arabic-indic);
+  position: absolute;
+  inset-block-start: .85rem;
+  inset-inline-start: 1.15rem;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.stage-card::after{
+  content: "";
+  position: absolute;
+  inset-block-start: 1.35rem;
+  inset-inline-start: 2.6rem;
+  inset-inline-end: 1.15rem;
+  height: 1px;
+  background: var(--line-soft);
+}
+.doclist{
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin-top: .6rem;
+}
+.doc{
+  font-size: .8rem;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: .12rem .5rem;
+  background: var(--ground);
+}
+
+/* ---- algorithm diagram ---- */
+.algo{
+  position: relative;
+  margin-top: .9rem;
+  display: grid;
+  gap: clamp(.9rem, 2.2vh, 1.6rem);
+}
+.algo__svg{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+.algo__svg path.wire{
+  fill: none;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  opacity: 0;
+}
+.algo__svg path.wire.is-on{ opacity: 1; }
+
+.qbar, .algo__cols, .answer{ position: relative; z-index: 2; }
+
+.qbar{
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  max-width: 34rem;
+  margin-inline: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: .5rem 1rem;
+  box-shadow: var(--shadow);
+  transition: border-color .3s ease, box-shadow .3s ease;
+}
+.qbar.is-on{ border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.qbar__k{
+  font-size: .68rem;
+  letter-spacing: .1em;
+  color: var(--text-faint);
+  border-inline-end: 1px solid var(--line);
+  padding-inline-end: .7rem;
+  white-space: nowrap;
+}
+.qbar__t{ font-size: .93rem; }
+
+.algo__cols{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2.5rem, 9vw, 6rem);
+  padding-inline: clamp(1.5rem, 5vw, 3.5rem);
+}
+.colhead{
+  font-size: .68rem;
+  letter-spacing: .12em;
+  color: var(--text-faint);
+  padding-inline: .2rem;
+  margin-bottom: .5rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.colhead::after{ content: ""; flex: 1; height: 1px; background: var(--line-soft); }
+.colstack{ display: grid; gap: .4rem; }
+
+.nrow{
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  padding: .45rem .7rem;
+  font-size: .88rem;
+  line-height: 1.5;
+  transition: border-color .3s ease, background .3s ease, opacity .3s ease;
+}
+.nrow__t{ font-weight: 600; }
+.tag{
+  font-family: var(--font-mono);
+  font-size: .84em;
+  color: var(--text-muted);
+  direction: ltr;
+  display: inline-block;
+}
+.nrow__s{
+  display: block;
+  font-size: .74rem;
+  color: var(--text-faint);
+}
+.algo.is-running .nrow{ opacity: .45; }
+.algo.is-running .nrow.is-hit{ opacity: 1; }
+.nrow.is-hit{
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.nrow.is-hit.is-db{
+  border-color: var(--data);
+  background: var(--data-wash);
+}
+
+.answer{
+  border: 1px solid color-mix(in srgb, var(--data) 45%, var(--line));
+  background: var(--data-wash);
+  border-radius: 9px;
+  padding: .75rem .9rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .4s ease, transform .4s ease;
+}
+.answer.is-on{ opacity: 1; transform: none; }
+.answer__k{
+  font-size: .68rem;
+  letter-spacing: .12em;
+  color: var(--data);
+  font-weight: 700;
+  margin-bottom: .25rem;
+}
+.answer__t{ font-size: .92rem; margin: 0; }
+
+.algo__bar{
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin: .2rem 0 .9rem;
+}
+.algo__note{ font-size: .76rem; color: var(--text-faint); }
+
+@media (max-width: 760px){
+  .algo__svg{ display: none; }
+  .algo__cols{ grid-template-columns: 1fr; gap: 1.1rem; padding-inline: 0; }
+}
+
+/* ---- step tracking ---- */
+.tracker{
+  margin-top: .9rem;
+  display: grid;
+  gap: .45rem;
+  max-width: 46rem;
+}
+.step{
+  display: grid;
+  grid-template-columns: 1.5rem 1fr auto;
+  align-items: center;
+  gap: .8rem;
+  border: 1px solid var(--line-soft);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: .55rem .8rem;
+  font-size: clamp(.9rem, 1.15vw, 1.02rem);
+}
+.step__i{
+  width: 1.5rem; height: 1.5rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: .74rem;
+  font-weight: 700;
+  border: 1.5px solid var(--line);
+  color: var(--text-faint);
+}
+.step--done{ border-color: color-mix(in srgb, var(--ok) 35%, var(--line-soft)); }
+.step--done .step__i{ background: var(--ok-wash); border-color: var(--ok); color: var(--ok); }
+.step--now{ border-color: var(--accent); background: var(--accent-wash); }
+.step--now .step__i{ background: var(--accent); border-color: var(--accent); color: var(--ground); }
+.step__s{
+  font-size: .74rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.step--now .step__s{ color: var(--accent); font-weight: 700; }
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+.controls{
+  position: fixed;
+  inset-block-end: 0;
+  inset-inline: 0;
+  height: 3.5rem;
+  padding-inline: clamp(.75rem, 3vw, 1.75rem);
+  padding-inline-start: calc(var(--rail) + .75rem);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  border-block-start: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+}
+.btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  padding-inline: .6rem;
+  border: 1px solid var(--line);
+  background: var(--ground);
+  color: var(--text);
+  border-radius: 7px;
+  font-family: var(--font-body);
+  font-size: .88rem;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+.btn:hover{ border-color: var(--accent); color: var(--accent); }
+.btn:disabled{ opacity: .4; cursor: default; }
+.btn:disabled:hover{ border-color: var(--line); color: var(--text); }
+.btn:focus-visible, .ov__item:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.btn svg{ width: 16px; height: 16px; }
+
+.counter{
+  font-family: var(--font-body);
+  font-size: .9rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 4.5rem;
+  text-align: center;
+}
+.counter b{ color: var(--text); font-weight: 700; }
+.spacer{ flex: 1; }
+.hint{
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-size: .78rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.hint b{
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.hint__sep{
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--line);
+}
+@media (max-width: 720px){ .hint{ display: none; } }
+
+/* ---- overview overlay ---- */
+.ov{
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--ground);
+  padding: clamp(1rem, 4vw, 2.5rem);
+  overflow-y: auto;
+  display: none;
+}
+.ov.is-open{ display: block; }
+.ov__head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  max-width: 70rem;
+  margin-inline: auto;
+}
+.ov__title{
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.ov__grid{
+  display: grid;
+  gap: .7rem;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  max-width: 70rem;
+  margin-inline: auto;
+}
+.ov__item{
+  text-align: start;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: .7rem .85rem;
+  cursor: pointer;
+  font-family: var(--font-body);
+  color: var(--text);
+  font-size: .95rem;
+  line-height: 1.5;
+  transition: border-color .18s ease, transform .18s ease;
+}
+.ov__item:hover{ border-color: var(--accent); transform: translateY(-2px); }
+.ov__item.is-current{ border-color: var(--accent); background: var(--accent-wash); }
+.ov__n{
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .14em;
+  color: var(--accent);
+  margin-bottom: .2rem;
+}
+
+/* ============================================================
+   LANGUAGE — Arabic/RTL is the base. English redefines the
+   direction, the numerals, and every mirrored element.
+   ============================================================ */
+:root[data-lang="en"]{
+  --font-body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+}
+:root[data-lang="en"] body{ direction: ltr; }
+
+/* numerals: Arabic-Indic counters become Latin */
+:root[data-lang="en"] .goal::before      { content: "0" counter(g); }
+:root[data-lang="en"] .stage-card::before{ content: "0" counter(st); }
+
+/* mirrored graphics */
+:root[data-lang="en"] .spark{ transform: none; }
+:root[data-lang="en"] .flow .arrow svg,
+:root[data-lang="en"] #prev svg,
+:root[data-lang="en"] #next svg{ transform: scaleX(-1); }
+:root[data-lang="en"] .byline{ text-align: left; }
+:root[data-lang="en"] .reading__k small{ direction: ltr; }
+/* stacked layout: the arrow points down in both languages */
+@media (max-width: 820px){
+  :root[data-lang="en"] .flow .arrow svg{ transform: rotate(-90deg); }
+}
+
+/* language switch button */
+.btn--lang{
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  letter-spacing: .08em;
+  min-width: 2.6rem;
+}
+:root[data-lang="en"] .btn--lang{
+  font-family: var(--font-body);
+  font-size: .95rem;
+  letter-spacing: 0;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+</style>
+
+<div class="deck">
+  <div class="progress"><div class="progress__bar" id="bar"></div></div>
+
+  <aside class="rail"><span class="rail__text" id="railText">SMART MAINTENANCE</span></aside>
+
+  <main class="stage" id="stage">
+
+    <!-- ١ الغلاف -->
+    <section class="slide cover is-active" data-rail="COVER" data-nav="الغلاف" data-nav-en="Cover">
+      <div class="slide__body stagger">
+        <span class="cover__mark" data-en="<span class='cover__dot'></span>PRESENTATION &middot; CONCEPT &amp; DESIGN"><span class="cover__dot"></span>عرض تقديمي · مفهوم وتصميم</span>
+        <h1 class="title" data-en="Smart Maintenance App<br><span style='color:var(--text-muted);font-weight:400;'>One platform for all station work</span>">تطبيق الصيانة الذكي<br><span style="color:var(--text-muted);font-weight:400;">منصة موحّدة لأعمال المحطة</span></h1>
+        <div class="cover__rule"></div>
+        <p class="cover__sub" data-en="Raising work efficiency and cutting station costs with AI tools">رفع كفاءة العمل وتقليل التكاليف باستخدام أدوات الذكاء الاصطناعي</p>
+        <p class="byline">ANAS TAWAHIA <span>/</span> EMD <span>/</span> 13-8-2026</p>
+      </div>
+    </section>
+
+    <!-- ٢ الهدف من العرض -->
+    <section class="slide" data-rail="OBJECTIVE" data-nav="الهدف من العرض" data-nav-en="Purpose">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SLIDE 02">الشريحة ٠٢</p>
+        <h2 class="title" data-en="Purpose of This Presentation">الهدف من العرض</h2>
+        <p class="lead" data-en="Presenting the design of a new app that serves staff and management alike.">عرض تصميم تطبيق جديد يخدم الموظفين والإدارة معاً.</p>
+        <div class="grid goals">
+          <div class="card goal">
+            <div class="card__t" data-en="Higher work efficiency">زيادة كفاءة العمل</div>
+            <p data-en="Faster coordination between departments, and every step documented on the spot.">تنسيق أسرع بين الأقسام وتوثيق فوري لكل خطوة.</p>
+          </div>
+          <div class="card goal">
+            <div class="card__t" data-en="Lower costs">تقليل التكاليف</div>
+            <p data-en="Cutting maintenance, paper and lost-time costs across the station.">خفض تكاليف الصيانة والورق والوقت الضائع على المحطة.</p>
+          </div>
+          <div class="card goal">
+            <div class="card__t" data-en="Use of artificial intelligence">الاستفادة من الذكاء الاصطناعي</div>
+            <p data-en="In analysis, prediction and decision support.">في التحليل والتنبؤ ودعم اتخاذ القرار.</p>
+          </div>
+        </div>
+        <div class="statusline">
+          <span class="statusline__k" data-en="NOTE">ملاحظة</span>
+          <span data-en="This presentation covers the concept and the current design &mdash; not a finished product.">العرض يقدّم المفهوم والتصميم الحالي، وليس منتجاً نهائياً.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ٣ الوضع الحالي -->
+    <section class="slide" data-rail="CURRENT STATE" data-nav="الوضع الحالي" data-nav-en="Where we are today">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SLIDE 03">الشريحة ٠٣</p>
+        <h2 class="title" data-en="Where We Are Today">الوضع الحالي</h2>
+        <p class="lead" data-en="Where efficiency is lost today in following up maintenance work.">أين تُهدَر الكفاءة اليوم في متابعة أعمال الصيانة.</p>
+        <ul class="bullets">
+          <li data-en="Repeated phone calls are the main way to follow up on work.">الاعتماد على الاتصالات الهاتفية المتكررة للمتابعة.</li>
+          <li data-en="Informal channels <span class='en'>(WhatsApp)</span> used to exchange photos and notes &rarr; data scattered and never kept.">استخدام وسائل تواصل غير رسمية <span class="en">(WhatsApp)</span> لتبادل الصور والملاحظات ← بيانات مبعثرة وغير محفوظة.</li>
+          <li data-en="Paper forms: paper and time consumed, and archiving or retrieval is difficult.">النماذج الورقية: استهلاك للورق والوقت، وصعوبة في الأرشفة والرجوع.</li>
+          <li data-en="No unified database &rarr; reports are hard to issue and past work is hard to trace.">غياب قاعدة بيانات موحّدة ← صعوبة إصدار التقارير وتتبّع الأعمال السابقة.</li>
+          <li data-en="Troubleshooting depends on individual experience.">الاعتماد على الخبرة الفردية في حل الأعطال.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ٤ نظرة عامة -->
+    <section class="slide" data-rail="OVERVIEW" data-nav="نظرة عامة على التطبيق" data-nav-en="App overview">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SLIDE 04">الشريحة ٠٤</p>
+        <h2 class="title" data-en="Overview of the App">نظرة عامة على التطبيق</h2>
+        <p class="lead" data-en="Four main sections working on one unified database.">أربعة أقسام رئيسية تعمل على قاعدة بيانات موحّدة.</p>
+
+        <div class="flow">
+          <div class="flow__stack">
+            <div class="chip" data-en="<span class='chip__i'>01</span><span class='chip__txt'><span class='chip__name'>Job Tracking</span><span class='chip__d'>Live tracking of maintenance work</span></span>"><span class="chip__i">٠١</span><span class="chip__txt"><span class="chip__name">Job Tracking</span><span class="chip__d">متابعة حيّة لسير أعمال الصيانة</span></span></div>
+            <div class="chip" data-en="<span class='chip__i'>02</span><span class='chip__txt'><span class='chip__name'>Motor Greasing</span><span class='chip__d'>Greasing management, records and monitoring</span></span>"><span class="chip__i">٠٢</span><span class="chip__txt"><span class="chip__name">Motor Greasing</span><span class="chip__d">إدارة وتوثيق ومراقبة التشحيم</span></span></div>
+            <div class="chip" data-en="<span class='chip__i'>03</span><span class='chip__txt'><span class='chip__name'>Troubleshooting</span><span class='chip__d'>AI-assisted fault solutions</span></span>"><span class="chip__i">٠٣</span><span class="chip__txt"><span class="chip__name">Troubleshooting</span><span class="chip__d">حلول الأعطال بالذكاء الاصطناعي</span></span></div>
+            <div class="chip" data-en="<span class='chip__i'>04</span><span class='chip__txt'><span class='chip__name'>PM Jobs</span><span class='chip__d'>Preventive maintenance forms, digital</span></span>"><span class="chip__i">٠٤</span><span class="chip__txt"><span class="chip__name">PM Jobs</span><span class="chip__d">نماذج الصيانة الوقائية إلكترونياً</span></span></div>
+          </div>
+
+          <div class="arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4"/><path d="M10 6l-6 6 6 6"/></svg>
+          </div>
+
+          <div class="node node--db">
+            <div class="node__t" data-en="Unified database">قاعدة بيانات موحّدة</div>
+            <div class="node__s" data-en="One source for all maintenance data">مصدر واحد لكل بيانات الصيانة</div>
+          </div>
+
+          <div class="arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4"/><path d="M10 6l-6 6 6 6"/></svg>
+          </div>
+
+          <div class="node node--ai">
+            <div class="node__t" data-en="Reports &amp; analytics">تقارير وتحليلات</div>
+            <div class="node__s" data-en="Powered by AI">بالذكاء الاصطناعي</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ٥ حالة التصميم والتنفيذ -->
+    <section class="slide" data-rail="STATUS" data-nav="حالة التصميم والتنفيذ" data-nav-en="Design &amp; implementation status">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SLIDE 05">الشريحة ٠٥</p>
+        <h2 class="title" data-en="Design &amp; Implementation Status">حالة التصميم والتنفيذ</h2>
+        <p class="lead" data-en="Where each section stands to date.">أين وصل كل قسم حتى تاريخه.</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th data-en="Section">القسم</th><th data-en="Design">التصميم</th><th data-en="Implementation">التنفيذ</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cellname" data-en="Job Tracking">متابعة الأعمال <span class="en">Job Tracking</span></td>
+                <td><span class="pill pill--warn" data-en="Partly complete">مكتمل جزئياً</span></td>
+                <td><span class="pill pill--idle" data-en="Not started">لم يبدأ</span></td>
+              </tr>
+              <tr>
+                <td class="cellname" data-en="Motor Greasing">تشحيم المواتير <span class="en">Motor Greasing</span></td>
+                <td><span class="pill pill--ok" data-en="Complete">مكتمل</span></td>
+                <td><span class="pill pill--idle" data-en="Not started">لم يبدأ</span></td>
+              </tr>
+              <tr>
+                <td class="cellname" data-en="Troubleshooting Guide">دليل حل الأعطال <span class="en">Troubleshooting Guide</span></td>
+                <td><span class="pill pill--warn" data-en="Partly complete">مكتمل جزئياً</span></td>
+                <td><span class="pill pill--warn" data-en="Partly complete">مكتمل جزئياً</span></td>
+              </tr>
+              <tr>
+                <td class="cellname" data-en="PM Jobs">الصيانة الوقائية <span class="en">PM Jobs</span></td>
+                <td><span class="pill pill--idle" data-en="Not started">لم يبدأ</span></td>
+                <td><span class="pill pill--idle" data-en="Not started">لم يبدأ</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="legend">
+          <span class="pill pill--ok" data-en="Complete">مكتمل</span>
+          <span class="pill pill--warn" data-en="Partly complete">مكتمل جزئياً</span>
+          <span class="pill pill--idle" data-en="Not started">لم يبدأ</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ٦ Job Tracking -->
+    <section class="slide" data-rail="SECTION 01" data-nav="القسم الأول: Job Tracking" data-nav-en="Section 1: Job Tracking">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SECTION 01 &middot; SLIDE 06">القسم الأول · الشريحة ٠٦</p>
+        <h2 class="title" data-en="Job Tracking">متابعة الأعمال <span class="en">Job Tracking</span></h2>
+        <p class="idea" data-en="<b>The idea:</b> live, direct tracking of maintenance work, visible to everyone involved."><b>الفكرة:</b> متابعة حيّة ومباشرة لسير العمل على أعمال الصيانة من قِبل جميع الموظفين.</p>
+        <ul class="bullets">
+          <li data-en="Fewer repeated phone calls just to ask about the status of a job.">تقليل الحاجة إلى الاتصالات المتكررة للاستفسار عن حالة العمل.</li>
+          <li data-en="Easier coordination between departments.">تسهيل التنسيق بين الأقسام المختلفة.</li>
+          <li data-en="No need for outside messaging apps &mdash; <b>photos, videos and notes</b> are added inside the job's own timeline.">إغناء عن وسائل التواصل الخارجية — التطبيق يدعم إضافة <b>صور وفيديوهات وملاحظات</b> ضمن خط سير العمل نفسه.</li>
+          <li data-en="Accurate documentation of every stage of progress.">توثيق دقيق لكل مرحلة من مراحل التقدّم.</li>
+          <li data-en="All data kept in a reliable database.">حفظ جميع البيانات في قاعدة بيانات موثوقة.</li>
+          <li data-en="Any past job and its stages can be looked up again.">إمكانية الرجوع إلى جميع الأعمال السابقة ومراحل تنفيذها.</li>
+          <li data-en="Detailed reports issued with AI.">إصدار تقارير مفصّلة باستخدام الذكاء الاصطناعي.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ٧ Motor Greasing -->
+    <section class="slide" data-rail="SECTION 02" data-nav="القسم الثاني: Motor Greasing" data-nav-en="Section 2: Motor Greasing">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SECTION 02 &middot; SLIDE 07">القسم الثاني · الشريحة ٠٧</p>
+        <h2 class="title" data-en="Motor Greasing">تشحيم المواتير <span class="en">Motor Greasing</span></h2>
+        <p class="idea" data-en="<b>The idea:</b> full management of the motor greasing cycle, from planning through to records."><b>الفكرة:</b> إدارة كاملة لدورة تشحيم المواتير من التخطيط حتى التوثيق.</p>
+        <ul class="bullets">
+          <li data-en="<b>Records:</b> every greasing operation stored in a database, retrievable, with detailed reports."><b>التوثيق:</b> حفظ جميع عمليات التشحيم في قاعدة بيانات مع إمكانية الرجوع وإصدار تقارير تفصيلية.</li>
+          <li data-en="<b>Organization:</b> no motor is left ungreased once it reaches its set running hours."><b>التنظيم:</b> ضمان عدم ترك أي موتور بدون تشحيم عند بلوغ عدد ساعات التشغيل المحددة.</li>
+          <li data-en="<b>Error prevention:</b> no repeated work on the same motor, and no mixing of grease types."><b>منع الأخطاء:</b> تفادي تكرار العمل على نفس الموتور، وتفادي خلط أنواع الشحوم.</li>
+          <li data-en="<b>Live monitoring:</b> the greasing operation is followed as it is carried out."><b>المراقبة الحيّة:</b> متابعة مباشرة لعملية التشحيم أثناء تنفيذها.</li>
+          <li data-en="<b>Simple, smooth management</b> that raises work efficiency."><b>إدارة سهلة وسلسة</b> ترفع كفاءة العمل.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ٨ المراقبة والصيانة التنبؤية -->
+    <section class="slide" data-rail="PREDICTIVE" data-nav="مراقبة الحرارة والصيانة التنبؤية" data-nav-en="Monitoring &amp; predictive maintenance">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SECTION 02 &middot; SLIDE 08">القسم الثاني · الشريحة ٠٨</p>
+        <h2 class="title" data-en="Live Monitoring &amp; Predictive Maintenance">المراقبة المباشرة والصيانة التنبؤية</h2>
+
+        <div class="split">
+          <div>
+            <ul class="bullets">
+              <li data-en="Live monitoring of <b>temperature, vibration and current</b> through the app.">مراقبة <b>درجات الحرارة والاهتزاز والتيار</b> بشكل مباشر عبر التطبيق.</li>
+              <li data-en="A separate reading for each bearing <span class='en'>(DE / NDE)</span> on every motor &mdash; each bearing read on its own.">قراءة منفصلة لكل مِحمل <span class="en">(DE / NDE)</span> لكل موتور — كل مِحمل يُقرأ على حدة.</li>
+              <li data-en="AI analysis of the data to catch abnormal trends.">تحليل البيانات بالذكاء الاصطناعي لرصد الاتجاهات غير الطبيعية.</li>
+              <li data-en="<b>Faults predicted before they happen</b>, with early warnings."><b>توقّع الأعطال قبل حدوثها</b> مع إنذارات مبكرة.</li>
+              <li data-en="The effect: fewer sudden failures and less lost production &mdash; moving from reactive to <b>predictive maintenance</b>.">الأثر: تقليل الأعطال المفاجئة وتوقف الإنتاج، والانتقال من صيانة تفاعلية إلى <b>صيانة تنبؤية</b>.</li>
+            </ul>
+          </div>
+
+          <div class="panel" aria-label="مثال توضيحي لشاشة المراقبة" data-en-aria="Illustrative example of the monitoring screen">
+            <div class="panel__head">
+              <span class="panel__title">MOTOR &mdash; LIVE</span>
+              <span class="panel__note" data-en="illustrative">شكل توضيحي</span>
+            </div>
+
+            <div class="reading">
+              <span class="reading__k" data-en="TEMP &middot; DE<small>drive end</small>">TEMP · DE<small>مِحمل جهة القارنة</small></span>
+              <svg class="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M2 20 L14 19 L26 21 L38 18 L50 19 L62 17 L74 18 L86 16 L98 17 L110 15 L118 16" stroke="var(--data)"/>
+              </svg>
+              <span class="reading__v v--ok">62 °C</span>
+            </div>
+
+            <div class="reading">
+              <span class="reading__k" data-en="TEMP &middot; NDE<small>non-drive end</small>">TEMP · NDE<small>مِحمل الجهة الأخرى</small></span>
+              <svg class="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M2 22 L14 21 L26 22 L38 20 L50 19 L62 17 L74 14 L86 12 L98 9 L110 6 L118 4" stroke="var(--warn)"/>
+              </svg>
+              <span class="reading__v v--warn">78 °C ↑</span>
+            </div>
+
+            <div class="reading">
+              <span class="reading__k" data-en="VIBRATION<small>overall level</small>">VIBRATION<small>الاهتزاز</small></span>
+              <svg class="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M2 18 L14 20 L26 17 L38 19 L50 16 L62 18 L74 15 L86 17 L98 14 L110 15 L118 13" stroke="var(--data)"/>
+              </svg>
+              <span class="reading__v v--ok">3.1 mm/s</span>
+            </div>
+
+            <div class="reading">
+              <span class="reading__k" data-en="CURRENT<small>motor load</small>">CURRENT<small>التيار</small></span>
+              <svg class="spark" viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M2 16 L14 15 L26 17 L38 16 L50 15 L62 16 L74 15 L86 16 L98 15 L110 16 L118 15" stroke="var(--data)"/>
+              </svg>
+              <span class="reading__v v--ok">104 A</span>
+            </div>
+
+            <div class="alert" data-en="<b>Early warning</b><span>Gradual rise in <span class='en'>NDE</span> bearing temperature &mdash; inspection advised.</span>">
+              <b>إنذار مبكر</b>
+              <span>ارتفاع تدريجي في حرارة مِحمل <span class="en">NDE</span> — يُنصح بالفحص.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ٩ Troubleshooting -->
+    <section class="slide" data-rail="SECTION 03" data-nav="القسم الثالث: Troubleshooting" data-nav-en="Section 3: Troubleshooting">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SECTION 03 &middot; SLIDE 09">القسم الثالث · الشريحة ٠٩</p>
+        <h2 class="title" data-en="Troubleshooting Guide">دليل حل الأعطال <span class="en">Troubleshooting Guide</span></h2>
+        <p class="idea" data-en="<b>The idea:</b> using AI to find solutions to problems and faults."><b>الفكرة:</b> استخدام الذكاء الاصطناعي في إيجاد حلول المشكلات والأعطال.</p>
+        <ul class="bullets">
+          <li data-en="Reaching the right solution quickly, instead of searching by hand or waiting on experience.">الوصول السريع إلى الحل المناسب بدل البحث اليدوي أو انتظار الخبرة.</li>
+          <li data-en="Less <span class='en'>downtime</span>.">تقليل زمن التوقف <span class="en">(Downtime)</span>.</li>
+          <li data-en="Technicians work more effectively, at a consistent standard.">رفع كفاءة الفنيين وتوحيد مستوى الأداء.</li>
+          <li data-en="Lower maintenance costs.">تقليل تكاليف الصيانة.</li>
+        </ul>
+        <div class="statusline">
+          <span class="statusline__k" data-en="STATUS">الحالة</span>
+          <span class="pill pill--warn" data-en="Design partly complete">التصميم مكتمل جزئياً</span>
+          <span class="pill pill--warn" data-en="Implementation started, partly complete">التنفيذ بدأ فعلياً ومكتمل جزئياً</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١٠ كيف يعمل الدليل -->
+    <section class="slide" data-rail="INDEXING" data-nav="كيف يعمل دليل حل الأعطال" data-nav-en="How the guide works">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SECTION 03 &middot; SLIDE 10">القسم الثالث · الشريحة ١٠</p>
+        <h2 class="title" data-en="How the Troubleshooting Guide Works">كيف يعمل دليل حل الأعطال</h2>
+        <p class="lead" data-en="The guide does not give generic answers &mdash; it works from the station's own documents.">الدليل لا يعطي إجابات عامة، بل يعتمد على مستندات المحطة نفسها.</p>
+
+        <div class="grid stages">
+          <div class="card stage-card">
+            <div class="card__t" data-en="Indexing">الفهرسة</div>
+            <p data-en="The app indexes the station's documents and links each one to its own equipment.">يقوم التطبيق بفهرسة مستندات المحطة وربط كل مستند بالمعدة الخاصة به.</p>
+            <div class="doclist">
+              <span class="doc" data-en="Drawings">المخططات</span>
+              <span class="doc" data-en="Catalogs">الكتالوجات</span>
+              <span class="doc" data-en="Past reports">التقارير السابقة</span>
+              <span class="doc" data-en="Fault logs">سجلات الأعطال</span>
+            </div>
+          </div>
+          <div class="card stage-card">
+            <div class="card__t" data-en="Retrieval">الاسترجاع</div>
+            <p data-en="When a technician asks about a fault, the equipment in question is identified and only its own data and documents are retrieved &mdash; no other equipment's data.">عند سؤال الفني عن عطل معيّن، يُحدَّد المعدة المقصودة وتُسترجَع بياناتها ومستنداتها هي فقط — لا بيانات معدة أخرى.</p>
+          </div>
+          <div class="card stage-card">
+            <div class="card__t" data-en="Guidance">المتابعة</div>
+            <p data-en="The app leads the technician through ordered steps until the work is done, documenting each step.">يقود التطبيق الفني على شكل خطوات متسلسلة حتى إنجاز العمل، مع توثيق كل خطوة.</p>
+          </div>
+        </div>
+
+        <div class="statusline">
+          <span class="statusline__k" data-en="EFFECT">الأثر</span>
+          <span data-en="An answer built on the equipment's own documents, traceable back to its source.">إجابة مبنية على مستندات المعدة نفسها، وقابلة للرجوع إلى مصدرها.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١١ خوارزمية الاسترجاع -->
+    <section class="slide" data-rail="RETRIEVAL" data-nav="خوارزمية الاسترجاع والإجابة" data-nav-en="Retrieval &amp; answer algorithm">
+      <div class="slide__body">
+        <p class="eyebrow" data-en="SECTION 03 &middot; SLIDE 11">القسم الثالث · الشريحة ١١</p>
+        <h2 class="title" data-en="Retrieval &amp; Answer Algorithm">خوارزمية الاسترجاع والإجابة</h2>
+
+        <div class="algo__bar">
+          <button class="btn" id="algoPlay" data-en="Play example">تشغيل المثال</button>
+          <span class="algo__note" data-en="An illustrative path from question to answer">مثال توضيحي لمسار السؤال حتى الإجابة</span>
+        </div>
+
+        <div class="algo" id="algo">
+          <svg class="algo__svg" id="algoSvg" aria-hidden="true">
+            <defs>
+              <marker id="ah1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 1 L9 5 L0 9 z" fill="var(--accent)"></path>
+              </marker>
+              <marker id="ah2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 1 L9 5 L0 9 z" fill="var(--data)"></path>
+              </marker>
+            </defs>
+            <path class="wire" id="w1" stroke="var(--accent)" marker-end="url(#ah1)"></path>
+            <path class="wire" id="w2" stroke="var(--accent)" marker-end="url(#ah1)"></path>
+            <path class="wire" id="w3" stroke="var(--data)" marker-end="url(#ah2)"></path>
+          </svg>
+
+          <div class="qbar" id="qbar">
+            <span class="qbar__k" data-en="TECHNICIAN'S QUESTION">سؤال الفني</span>
+            <span class="qbar__t" data-en="<span class='tag'>PAF 1A</span> motor is drawing high current with a rising bearing temperature">موتور <span class="tag">PAF 1A</span> يسحب تياراً عالياً مع ارتفاع في حرارة المِحمل</span>
+          </div>
+
+          <div class="algo__cols">
+            <div>
+              <div class="colhead" data-en="COLUMN 1 &mdash; EQUIPMENT">العمود الأول — المعدات</div>
+              <div class="colstack">
+                <div class="nrow" data-eq="uat1"><span class="nrow__t"><span class="tag">Unit Auxiliary Transformer 1</span></span><span class="nrow__s" data-en="Transformer">محوّل الوحدة المساعد</span></div>
+                <div class="nrow" data-eq="paf1a"><span class="nrow__t"><span class="tag">PAF 1A Motor</span></span><span class="nrow__s" data-en="Motor">موتور</span></div>
+                <div class="nrow" data-eq="ic2b"><span class="nrow__t"><span class="tag">Instrument Compressor 2B</span></span><span class="nrow__s" data-en="Compressor">ضاغط هواء الأجهزة</span></div>
+                <div class="nrow" data-eq="ges"><span class="nrow__t"><span class="tag">Generator Excitation System</span></span><span class="nrow__s" data-en="Excitation system">نظام إثارة المولّد</span></div>
+                <div class="nrow" data-eq="bsgi"><span class="nrow__t"><span class="tag">Boiler Switchgear Incomer</span></span><span class="nrow__s" data-en="Switchgear">قاطع تغذية لوحة المرجل</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="colhead" data-en="COLUMN 2 &mdash; DATABASES">العمود الثاني — قواعد البيانات</div>
+              <div class="colstack">
+                <div class="nrow is-db" data-db="uat1"><span class="nrow__t" data-en="<span class='tag'>Transformer 1</span> database">قاعدة بيانات <span class="tag">Transformer 1</span></span><span class="nrow__s" data-en="drawings &middot; catalog &middot; reports &middot; fault log">مخططات · كتالوج · تقارير · سجل أعطال</span></div>
+                <div class="nrow is-db" data-db="paf1a"><span class="nrow__t" data-en="<span class='tag'>PAF 1A</span> database">قاعدة بيانات <span class="tag">PAF 1A</span></span><span class="nrow__s" data-en="drawings &middot; catalog &middot; reports &middot; fault log">مخططات · كتالوج · تقارير · سجل أعطال</span></div>
+                <div class="nrow is-db" data-db="ic2b"><span class="nrow__t" data-en="<span class='tag'>Compressor 2B</span> database">قاعدة بيانات <span class="tag">Compressor 2B</span></span><span class="nrow__s" data-en="drawings &middot; catalog &middot; reports &middot; fault log">مخططات · كتالوج · تقارير · سجل أعطال</span></div>
+                <div class="nrow is-db" data-db="ges"><span class="nrow__t" data-en="<span class='tag'>Excitation System</span> database">قاعدة بيانات <span class="tag">Excitation System</span></span><span class="nrow__s" data-en="drawings &middot; catalog &middot; reports &middot; fault log">مخططات · كتالوج · تقارير · سجل أعطال</span></div>
+                <div class="nrow is-db" data-db="bsgi"><span class="nrow__t" data-en="<span class='tag'>Boiler Incomer</span> database">قاعدة بيانات <span class="tag">Boiler Incomer</span></span><span class="nrow__s" data-en="drawings &middot; catalog &middot; reports &middot; fault log">مخططات · كتالوج · تقارير · سجل أعطال</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="answer" id="answer">
+            <div class="answer__k" data-en="AI ANSWER">الإجابة بالذكاء الاصطناعي</div>
+            <p class="answer__t" data-en="The result is drawn from the <span class='tag'>PAF 1A Motor</span> documents alone, then written up with its source attached, and the app starts guiding the technician step by step.">تُستخرَج النتيجة من مستندات <span class="tag">PAF 1A Motor</span> وحدها، ثم تُصاغ إجابة مرتبطة بمصدرها، ويبدأ التطبيق بقيادة الفني خطوة بخطوة.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١٢ متابعة العمل خطوة بخطوة -->
+    <section class="slide" data-rail="GUIDED STEPS" data-nav="متابعة العمل خطوة بخطوة" data-nav-en="Step-by-step guidance">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SECTION 03 &middot; SLIDE 12">القسم الثالث · الشريحة ١٢</p>
+        <h2 class="title" data-en="Guiding the Technician, Step by Step">متابعة العمل مع الفني خطوة بخطوة</h2>
+        <p class="lead" data-en="After the answer, the technician is not left alone &mdash; the app stays with them until the work is done.">بعد الإجابة، لا يُترك الفني وحده — التطبيق يتابع معه حتى إنجاز العمل.</p>
+
+        <div class="tracker">
+          <div class="step step--done" data-en="<span class='step__i'>&#10003;</span><span>Confirm safety procedures and isolate the equipment</span><span class='step__s'>Done</span>"><span class="step__i">✓</span><span>التأكد من إجراءات السلامة وعزل المعدة</span><span class="step__s">منجزة</span></div>
+          <div class="step step--done" data-en="<span class='step__i'>&#10003;</span><span>Measure <span class='tag'>DE</span> and <span class='tag'>NDE</span> bearing temperatures &mdash; each bearing on its own</span><span class='step__s'>Done</span>"><span class="step__i">✓</span><span>قياس حرارة المِحملين <span class="tag">DE</span> و <span class="tag">NDE</span> — كل مِحمل على حدة</span><span class="step__s">منجزة</span></div>
+          <div class="step step--now" data-en="<span class='step__i'>3</span><span>Review the equipment's last greasing record</span><span class='step__s'>Current step</span>"><span class="step__i">٣</span><span>مراجعة سجل التشحيم الأخير للمعدة</span><span class="step__s">الخطوة الحالية</span></div>
+          <div class="step" data-en="<span class='step__i'>4</span><span>Measure vibration and compare with the baseline reading</span><span class='step__s'>Next</span>"><span class="step__i">٤</span><span>قياس الاهتزاز ومقارنته بالقراءة المرجعية</span><span class="step__s">تالية</span></div>
+          <div class="step" data-en="<span class='step__i'>5</span><span>Check coupling alignment and base bolts</span><span class='step__s'>Next</span>"><span class="step__i">٥</span><span>فحص محاذاة القارنة وربط القواعد</span><span class="step__s">تالية</span></div>
+          <div class="step" data-en="<span class='step__i'>6</span><span>Record the outcome and close the job</span><span class='step__s'>Next</span>"><span class="step__i">٦</span><span>توثيق النتيجة وإغلاق العمل</span><span class="step__s">تالية</span></div>
+        </div>
+
+        <div class="statusline">
+          <span class="statusline__k" data-en="NOTE">ملاحظة</span>
+          <span data-en="Every step is documented, with a photo or note attachable, and the job cannot be closed until all steps are done.">كل خطوة تُوثَّق مع إمكانية إرفاق صورة أو ملاحظة، ولا يُغلق العمل إلا بعد إنجاز جميع الخطوات.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١٣ PM Jobs -->
+    <section class="slide" data-rail="SECTION 04" data-nav="القسم الرابع: PM Jobs" data-nav-en="Section 4: PM Jobs">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SECTION 04 &middot; SLIDE 13">القسم الرابع · الشريحة ١٣</p>
+        <h2 class="title" data-en="Preventive Maintenance &mdash; PM Jobs">الصيانة الوقائية <span class="en">PM Jobs</span></h2>
+        <p class="idea" data-en="<b>The idea:</b> moving preventive maintenance forms from paper to digital forms."><b>الفكرة:</b> تحويل نماذج الصيانة الوقائية من الورق إلى نماذج إلكترونية.</p>
+        <ul class="bullets">
+          <li data-en="An end to full reliance on paper forms.">إلغاء الاعتماد الكامل على النماذج الورقية.</li>
+          <li data-en="Less paper consumed.">تقليل استهلاك الورق.</li>
+          <li data-en="Time saved in filling in, filing and retrieving forms.">توفير الوقت في التعبئة والأرشفة والاسترجاع.</li>
+          <li data-en="Photos attached with notes directly inside the form.">إمكانية إرفاق الصور مع الملاحظات مباشرة داخل النموذج.</li>
+        </ul>
+        <div class="statusline">
+          <span class="statusline__k" data-en="STATUS">الحالة</span>
+          <span class="pill pill--idle" data-en="Design and implementation not started yet">التصميم والتنفيذ لم يبدآ بعد</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١١ الأثر المتوقع -->
+    <section class="slide" data-rail="IMPACT" data-nav="الأثر المتوقع على المحطة" data-nav-en="Expected impact">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SLIDE 14">الشريحة ١٤</p>
+        <h2 class="title" data-en="Expected Impact on the Station">الأثر المتوقع على المحطة</h2>
+        <div class="grid impact">
+          <div class="card"><div class="card__t" data-en="Time">الوقت</div><p data-en="Less time spent coordinating, and less time to clear faults.">تقليل زمن التنسيق وزمن حل الأعطال.</p></div>
+          <div class="card"><div class="card__t" data-en="Cost">التكلفة</div><p data-en="Lower maintenance, paper and sudden-failure costs.">تقليل تكاليف الصيانة، والورق، والأعطال المفاجئة.</p></div>
+          <div class="card"><div class="card__t" data-en="Quality">الجودة</div><p data-en="Complete, auditable records for all work.">توثيق كامل وقابل للتدقيق لكل الأعمال.</p></div>
+          <div class="card"><div class="card__t" data-en="Decisions">القرار</div><p data-en="Immediate reports and analytics to support management decisions.">تقارير وتحليلات فورية تدعم قرارات الإدارة.</p></div>
+          <div class="card"><div class="card__t" data-en="Safety &amp; reliability">السلامة والموثوقية</div><p data-en="Early warnings that reduce the risk of major failures.">إنذارات مبكرة تقلل مخاطر الأعطال الكبيرة.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١٢ الذكاء الاصطناعي -->
+    <section class="slide" data-rail="AI" data-nav="الذكاء الاصطناعي داخل التطبيق" data-nav-en="AI inside the app">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SLIDE 15">الشريحة ١٥</p>
+        <h2 class="title" data-en="AI Inside the App">الذكاء الاصطناعي داخل التطبيق</h2>
+        <div class="grid">
+          <div class="card"><div class="card__t" data-en="Reports">التقارير</div><p data-en="Detailed reports issued from maintenance work data.">إصدار تقارير مفصّلة من بيانات أعمال الصيانة.</p></div>
+          <div class="card"><div class="card__t" data-en="Analysis &amp; prediction">التحليل والتنبؤ</div><p data-en="Analyzing the data and predicting faults before they happen.">تحليل البيانات والتنبؤ بالأعطال قبل حدوثها.</p></div>
+          <div class="card"><div class="card__t" data-en="Problem solving">حل المشكلات</div><p data-en="Finding solutions to faults and problems, and supporting technicians.">إيجاد حلول الأعطال والمشكلات ودعم الفنيين.</p></div>
+        </div>
+        <div class="statusline">
+          <span class="statusline__k" data-en="NOTE">ملاحظة</span>
+          <span data-en="These capabilities run on the station's own data, so they grow more accurate as data accumulates.">هذه القدرات تعمل على بيانات المحطة نفسها، فتزداد دقتها مع تراكم البيانات.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١٣ خارطة الطريق -->
+    <section class="slide" data-rail="ROADMAP" data-nav="خارطة الطريق" data-nav-en="Roadmap">
+      <div class="slide__body stagger">
+        <p class="eyebrow" data-en="SLIDE 16">الشريحة ١٦</p>
+        <h2 class="title" data-en="Roadmap &amp; Next Steps">خارطة الطريق والخطوات القادمة</h2>
+        <ul class="steps">
+          <li data-en="Complete the design of all sections.">استكمال تصميم جميع الأقسام.</li>
+          <li data-en="Begin implementing the sections as management decides.">بدء تنفيذ الأقسام حسب رغبة الإدارة.</li>
+        </ul>
+        <p class="lead" style="margin-top:1.4rem;margin-bottom:.4rem;" data-en="What is needed to move forward:">ما هو مطلوب للمضي قدماً:</p>
+        <div class="needs">
+          <span class="need" data-en="Approval">الموافقة</span>
+          <span class="need" data-en="Technical support">الدعم الفني</span>
+          <span class="need" data-en="Data sources">مصادر البيانات</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ١٤ الخاتمة -->
+    <section class="slide closing" data-rail="CLOSING" data-nav="الخاتمة" data-nav-en="Closing">
+      <div class="slide__body stagger">
+        <p class="eyebrow" style="justify-content:center;" data-en="SLIDE 17">الشريحة ١٧</p>
+        <h2 class="title" data-en="One App, Four Sections">تطبيق واحد يجمع أربعة أقسام</h2>
+        <p class="lead" style="margin-inline:auto;" data-en="On one unified database, powered by artificial intelligence.">على قاعدة بيانات موحّدة، مدعوم بالذكاء الاصطناعي.</p>
+        <div class="transition">
+          <span class="from" data-en="Paper work and manual follow-up">العمل الورقي والمتابعة اليدوية</span>
+          <span class="sep" data-en="&rarr;">←</span>
+          <span class="to" data-en="A smart digital platform">منصة رقمية ذكية</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="controls" aria-label="التنقل بين الشرائح" data-en-aria="Slide navigation">
+    <button class="btn" id="prev" title="السابق" data-en-title="Previous" aria-label="الشريحة السابقة" data-en-aria="Previous slide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <button class="btn" id="next" title="التالي" data-en-title="Next" aria-label="الشريحة التالية" data-en-aria="Next slide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <span class="counter" id="counter"></span>
+    <button class="btn" id="grid" title="كل الشرائح" data-en-title="All slides" data-en="Slides">الشرائح</button>
+    <span class="spacer"></span>
+    <span class="hint" data-en="<span>Arrows to navigate</span><span class='hint__sep'></span><span><b>F</b>&nbsp;Fullscreen</span><span class='hint__sep'></span><span><b>O</b>&nbsp;All slides</span>">
+      <span>الأسهم للتنقل</span>
+      <span class="hint__sep"></span>
+      <span><b>F</b>&nbsp;ملء الشاشة</span>
+      <span class="hint__sep"></span>
+      <span><b>O</b>&nbsp;كل الشرائح</span>
+    </span>
+    <button class="btn btn--lang" id="lang" title="English" data-en-title="العربية" aria-label="تغيير اللغة" data-en-aria="Change language">EN</button>
+    <button class="btn" id="theme" title="تبديل المظهر" data-en-title="Toggle theme" aria-label="تبديل المظهر" data-en-aria="Toggle theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>
+    </button>
+    <button class="btn" id="full" title="ملء الشاشة" data-en-title="Fullscreen" aria-label="ملء الشاشة" data-en-aria="Fullscreen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M16 21h3a2 2 0 002-2v-3M8 21H5a2 2 0 01-2-2v-3"/></svg>
+    </button>
+  </nav>
+
+  <div class="ov" id="ov" role="dialog" aria-modal="true" aria-label="كل الشرائح" data-en-aria="All slides">
+    <div class="ov__head">
+      <span class="ov__title" data-en="ALL SLIDES">كل الشرائح</span>
+      <button class="btn" id="ovClose" data-en="Close">إغلاق</button>
+    </div>
+    <div class="ov__grid" id="ovGrid"></div>
+  </div>
+</div>
+
+<script>
+/* ---- language: Arabic/RTL is the base, English is swapped in from data-en ---- */
+(function(){
+  var root = document.documentElement;
+  var btn  = document.getElementById('lang');
+  var html = [];   // [element, arabic innerHTML, english innerHTML]
+  var attr = [];   // [element, attribute, arabic value, english value]
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-en]'), function(el){
+    html.push([el, el.innerHTML, el.getAttribute('data-en')]);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-en-title]'), function(el){
+    attr.push([el, 'title', el.getAttribute('title') || '', el.getAttribute('data-en-title')]);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-en-aria]'), function(el){
+    attr.push([el, 'aria-label', el.getAttribute('aria-label') || '', el.getAttribute('data-en-aria')]);
+  });
+
+  function apply(lang){
+    var en = lang === 'en';
+    root.setAttribute('data-lang', lang);
+    root.setAttribute('lang', lang);
+    root.setAttribute('dir', en ? 'ltr' : 'rtl');
+    html.forEach(function(r){ r[0].innerHTML = en ? r[2] : r[1]; });
+    attr.forEach(function(r){ r[0].setAttribute(r[1], en ? r[3] : r[2]); });
+    btn.textContent = en ? 'عربي' : 'EN';
+    document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: lang } }));
+  }
+
+  btn.addEventListener('click', function(){
+    apply(root.getAttribute('data-lang') === 'en' ? 'ar' : 'en');
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'l' || e.key === 'L') { apply(root.getAttribute('data-lang') === 'en' ? 'ar' : 'en'); }
+  });
+
+  apply('en');
+})();
+
+(function(){
+  var root     = document.documentElement;
+  var slides   = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total    = slides.length;
+  var idx      = 0;
+  var bar      = document.getElementById('bar');
+  var counter  = document.getElementById('counter');
+  var railText = document.getElementById('railText');
+  var prevBtn  = document.getElementById('prev');
+  var nextBtn  = document.getElementById('next');
+  var ov       = document.getElementById('ov');
+  var ovGrid   = document.getElementById('ovGrid');
+
+  function isEn(){ return root.getAttribute('data-lang') === 'en'; }
+
+  // digits follow the deck's language: Arabic-Indic in Arabic, Latin in English
+  function ar(n){
+    if (isEn()) return String(n);
+    return String(n).replace(/\d/g, function(d){ return '٠١٢٣٤٥٦٧٨٩'[+d]; });
+  }
+  function pad(n){ return n < 10 ? (isEn() ? '0' : '٠') + ar(n) : ar(n); }
+
+  function navLabel(s){
+    if (isEn()) return s.getAttribute('data-nav-en') || s.getAttribute('data-nav') || '';
+    return s.getAttribute('data-nav') || '';
+  }
+
+  // build the overview grid
+  slides.forEach(function(s, i){
+    var b = document.createElement('button');
+    b.className = 'ov__item';
+    b.addEventListener('click', function(){ go(i); closeOv(); });
+    ovGrid.appendChild(b);
+  });
+  var ovItems = Array.prototype.slice.call(ovGrid.children);
+
+  // (re)writes every language-dependent string in the deck chrome
+  function paint(){
+    ovItems.forEach(function(b, i){
+      b.innerHTML = '<span class="ov__n">' + pad(i + 1) + '</span>' + navLabel(slides[i]);
+    });
+    counter.innerHTML = '<b>' + pad(idx + 1) + '</b> / ' + pad(total);
+  }
+
+  function go(n){
+    idx = Math.max(0, Math.min(total - 1, n));
+    slides.forEach(function(s, i){ s.classList.toggle('is-active', i === idx); });
+    ovItems.forEach(function(b, i){ b.classList.toggle('is-current', i === idx); });
+    bar.style.width = ((idx + 1) / total * 100) + '%';
+    paint();
+    railText.textContent = slides[idx].getAttribute('data-rail') || '';
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === total - 1;
+    slides[idx].scrollTop = 0;
+    document.dispatchEvent(new CustomEvent('slidechange', {
+      detail: { index: idx, slide: slides[idx] }
+    }));
+  }
+
+  function openOv(){ ov.classList.add('is-open'); }
+  function closeOv(){ ov.classList.remove('is-open'); }
+
+  prevBtn.addEventListener('click', function(){ go(idx - 1); });
+  nextBtn.addEventListener('click', function(){ go(idx + 1); });
+  document.getElementById('grid').addEventListener('click', openOv);
+  document.getElementById('ovClose').addEventListener('click', closeOv);
+
+  document.getElementById('full').addEventListener('click', function(){
+    if (document.fullscreenElement) { document.exitFullscreen(); }
+    else if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen(); }
+  });
+
+  document.getElementById('theme').addEventListener('click', function(){
+    var root = document.documentElement;
+    var cur  = root.getAttribute('data-theme');
+    if (!cur) {
+      var sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      cur = sysDark ? 'dark' : 'light';
+    }
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') { closeOv(); return; }
+    if (ov.classList.contains('is-open')) return;
+    // the forward arrow follows the reading direction
+    var fwd  = isEn() ? 'ArrowRight' : 'ArrowLeft';
+    var back = isEn() ? 'ArrowLeft'  : 'ArrowRight';
+    if (e.key === fwd || e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault(); go(idx + 1);
+    } else if (e.key === back || e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault(); go(idx - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault(); go(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); go(total - 1);
+    } else if (e.key === 'o' || e.key === 'O') {
+      openOv();
+    } else if (e.key === 'f' || e.key === 'F') {
+      document.getElementById('full').click();
+    }
+  });
+
+  // swipe on touch devices
+  var x0 = null;
+  document.addEventListener('touchstart', function(e){ x0 = e.changedTouches[0].clientX; }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 60) { go(dx > 0 ? idx - 1 : idx + 1); }
+    x0 = null;
+  }, {passive:true});
+
+  document.addEventListener('langchange', function(){ paint(); });
+
+  go(0);
+})();
+
+/* ---- retrieval algorithm: draws the query path on demand ---- */
+(function(){
+  var algo   = document.getElementById('algo');
+  if (!algo) return;
+  var svg    = document.getElementById('algoSvg');
+  var qbar   = document.getElementById('qbar');
+  var answer = document.getElementById('answer');
+  var playBtn= document.getElementById('algoPlay');
+  var TARGET = 'paf1a';
+  var eq = algo.querySelector('[data-eq="' + TARGET + '"]');
+  var db = algo.querySelector('[data-db="' + TARGET + '"]');
+  var w1 = document.getElementById('w1');
+  var w2 = document.getElementById('w2');
+  var w3 = document.getElementById('w3');
+  var timers = [];
+  var calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  function box(el){
+    var c = algo.getBoundingClientRect();
+    var r = el.getBoundingClientRect();
+    return {
+      right: r.right - c.left, left: r.left - c.left,
+      top: r.top - c.top,      bottom: r.bottom - c.top,
+      midX: (r.left + r.right) / 2 - c.left,
+      midY: (r.top + r.bottom) / 2 - c.top
+    };
+  }
+
+  function layout(){
+    if (!algo.offsetWidth) return;
+    var q = box(qbar), e = box(eq), d = box(db), a = box(answer);
+
+    // the columns swap sides with the reading direction, so the whole
+    // route is expressed in "outer / inner" terms and mirrored by s
+    var rtl    = getComputedStyle(algo).direction !== 'ltr';
+    var s      = rtl ? 1 : -1;                 // +1 points outward to the right
+    var eOuter = rtl ? e.right : e.left;       // equipment side facing the page edge
+    var eInner = rtl ? e.left  : e.right;      // equipment side facing the databases
+    var dInner = rtl ? d.right : d.left;       // database side facing the equipment
+    var dOuter = rtl ? d.left  : d.right;
+
+    // outer lanes, so no wire is ever drawn across a card
+    var room = rtl ? (algo.offsetWidth - e.right) : e.left;
+    var lane = Math.max(16, Math.min(38, room * 0.62));
+    var lx = eOuter + lane * s;   // lane beside the equipment column
+    var rx = dOuter - lane * s;   // lane beside the database column
+
+    // question  ->  the equipment it names (enters from the outer side)
+    w1.setAttribute('d',
+      'M' + q.midX + ',' + q.bottom +
+      ' C' + q.midX + ',' + (q.bottom + 22) +
+      ' ' + lx + ',' + (q.bottom + 6) +
+      ' ' + lx + ',' + (q.bottom + 44) +
+      ' L' + lx + ',' + (e.midY - 22) +
+      ' Q' + lx + ',' + e.midY + ' ' + (eOuter + 8 * s) + ',' + e.midY);
+
+    // equipment  ->  its own database
+    w2.setAttribute('d', 'M' + eInner + ',' + e.midY + ' L' + (dInner + 8 * s) + ',' + d.midY);
+
+    // database  ->  the AI answer
+    w3.setAttribute('d',
+      'M' + dOuter + ',' + d.midY +
+      ' Q' + rx + ',' + d.midY + ' ' + rx + ',' + (d.midY + 28) +
+      ' L' + rx + ',' + (a.top - 10));
+
+    [w1, w2, w3].forEach(function(p){
+      var len = p.getTotalLength();
+      p.style.strokeDasharray = len;
+      if (!p.classList.contains('is-on')) p.style.strokeDashoffset = len;
+    });
+  }
+
+  function clearTimers(){
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+
+  function reset(){
+    clearTimers();
+    algo.classList.remove('is-running');
+    qbar.classList.remove('is-on');
+    answer.classList.remove('is-on');
+    eq.classList.remove('is-hit');
+    db.classList.remove('is-hit');
+    [w1, w2, w3].forEach(function(p){
+      p.classList.remove('is-on');
+      p.style.transition = 'none';
+      p.style.strokeDashoffset = p.getTotalLength ? p.getTotalLength() : 0;
+    });
+    layout();
+  }
+
+  function draw(p, ms){
+    p.classList.add('is-on');
+    p.style.transition = 'stroke-dashoffset ' + ms + 'ms ease';
+    p.style.strokeDashoffset = 0;
+  }
+
+  function at(ms, fn){ timers.push(setTimeout(fn, ms)); }
+
+  function run(){
+    reset();
+    layout();
+    if (calm.matches){
+      algo.classList.add('is-running');
+      qbar.classList.add('is-on');
+      eq.classList.add('is-hit');
+      db.classList.add('is-hit');
+      [w1, w2, w3].forEach(function(p){ p.classList.add('is-on'); p.style.strokeDashoffset = 0; });
+      answer.classList.add('is-on');
+      return;
+    }
+    at(60,   function(){ algo.classList.add('is-running'); qbar.classList.add('is-on'); });
+    at(320,  function(){ draw(w1, 620); });
+    at(920,  function(){ eq.classList.add('is-hit'); });
+    at(1080, function(){ draw(w2, 460); });
+    at(1520, function(){ db.classList.add('is-hit'); });
+    at(1680, function(){ draw(w3, 620); });
+    at(2280, function(){ answer.classList.add('is-on'); });
+  }
+
+  playBtn.addEventListener('click', run);
+
+  document.addEventListener('slidechange', function(e){
+    if (e.detail.slide.contains(algo)) {
+      requestAnimationFrame(function(){ requestAnimationFrame(run); });
+    } else {
+      reset();
+    }
+  });
+
+  // switching language flips the columns and resizes the cards
+  document.addEventListener('langchange', function(){
+    var slide = algo.closest('.slide');
+    requestAnimationFrame(function(){
+      if (slide && slide.classList.contains('is-active')) { run(); } else { reset(); }
+    });
+  });
+
+  var rt;
+  window.addEventListener('resize', function(){
+    clearTimeout(rt);
+    rt = setTimeout(layout, 150);
+  });
+  layout();
+})();
+</script>
